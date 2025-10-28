@@ -76,47 +76,59 @@
     const PATH = 'orders';
 
     // Auto-fill date
-    if (!document.getElementById('orderDate').value) {
-      document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
-    }
+    document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
 
     async function saveAndGoBack() {
       const orderNo = document.getElementById('orderNo').value.trim();
       if (!orderNo) return alert("Enter Order No!");
 
-      const data = {};
-      document.querySelectorAll('input, textarea').forEach(f => data[f.id] = f.value);
-      data.status = 'Pending';
-      data.createdAt = new Date().toISOString();
+      const data = {
+        orderNo, name: document.getElementById('name').value,
+        brand: document.getElementById('brand').value,
+        oem: document.getElementById('oem').value,
+        mobile: document.getElementById('mobile').value,
+        gst: document.getElementById('gst').value,
+        address: document.getElementById('address').value,
+        type: document.getElementById('type').value,
+        voltage: document.getElementById('voltage').value,
+        capacity: document.getElementById('capacity').value,
+        discharge: document.getElementById('discharge').value,
+        charging: document.getElementById('charging').value,
+        bms: document.getElementById('bms').value,
+        size: document.getElementById('size').value,
+        casing: document.getElementById('casing').value,
+        instructions: document.getElementById('instructions').value,
+        payment: document.getElementById('payment').value,
+        status: 'Pending',
+        createdAt: new Date().toISOString()
+      };
 
       const content = btoa(JSON.stringify(data, null, 2));
 
       try {
-        // Try to get existing file
-        let method = 'PUT';
-        let body = { message: `Create order ${orderNo}`, content, branch: 'main' };
-
-        const existing = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
-          headers: { Authorization: `token ${TOKEN}` }
+        // GET existing file
+        const getRes = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+          headers: { 'Authorization': `token ${TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
         });
 
-        if (existing.ok) {
-          const info = await existing.json();
+        let body = { message: `Create order ${orderNo}`, content, branch: 'main' };
+        if (getRes.ok) {
+          const info = await getRes.json();
           body.sha = info.sha;
           body.message = `Update order ${orderNo}`;
         }
 
         await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
-          method,
-          headers: { Authorization: `token ${TOKEN}` },
+          method: 'PUT',
+          headers: { 'Authorization': `token ${TOKEN}`, 'Accept': 'application/vnd.github.v3+json' },
           body: JSON.stringify(body)
         });
 
         alert(`Saved: ${orderNo}`);
-        window.location.href = 'dashboard.html';
+        window.location.href = 'dashboard.html?refresh=' + Date.now();
       } catch (e) {
         console.error(e);
-        alert("Save failed. Check Order No or internet.");
+        alert("Save failed. Check internet or Order No.");
       }
     }
   </script>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales Order Form</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f9f9f9; }
+    .form { max-width: 800px; margin: auto; background: white; padding: 25px; border: 1px solid #ccc; border-radius: 8px; }
+    .label { font-weight: bold; margin-top: 15px; display: block; }
+    input, textarea { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ccc; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 25px 0; }
+    th { background: #ffc107; padding: 12px; text-align: center; font-weight: bold; color: #000; }
+    td { padding: 10px; border: 1px solid #ccc; }
+    td input, td textarea { border: none; background: transparent; width: 100%; }
+    .btn { background: #28a745; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; display: block; margin: 20px auto 0; }
+    .btn:hover { background: #218838; }
+    .note { font-size: 12px; color: #666; text-align: center; margin-top: 15px; }
+    .required { color: red; }
+    .reset-btn { background: #dc3545; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="form" id="formContent">
+    <h2 style="text-align:center; margin-bottom:25px;">Sales Order Form</h2>
+
+    <div class="label">Order No <span class="required">*</span></div>
+    <input type="text" id="orderNo" placeholder="e.g. SO-2025-001">
+
+    <div class="label">Order Date</div>
+    <input type="date" id="orderDate">
+
+    <div class="label">Name</div>
+    <input type="text" id="name">
+
+    <div class="label">Brand Name</div>
+    <input type="text" id="brand">
+
+    <div class="label">OEM</div>
+    <input type="text" id="oem">
+
+    <div class="label">Mobile Number</div>
+    <input type="text" id="mobile">
+
+    <div class="label">GST No</div>
+    <input type="text" id="gst">
+
+    <div class="label">Address</div>
+    <textarea id="address" rows="2"></textarea>
+
+    <table>
+      <tr>
+        <th>Product</th>
+        <th>Remark</th>
+      </tr>
+      <tr><td>Type</td><td><input type="text" id="type"></td></tr>
+      <tr><td>Voltage</td><td><input type="text" id="voltage"></td></tr>
+      <tr><td>Capacity</td><td><input type="text" id="capacity"></td></tr>
+      <tr><td>Maximum Discharge current</td><td><input type="text" id="discharge"></td></tr>
+      <tr><td>Maximum Charging current</td><td><input type="text" id="charging"></td></tr>
+      <tr><td>BMS Type</td><td><input type="text" id="bms"></td></tr>
+      <tr><td>Size</td><td><input type="text" id="size"></td></tr>
+      <tr><td>Casing Type</td><td><input type="text" id="casing"></td></tr>
+      <tr><td>Other Instructions</td><td><textarea id="instructions"></textarea></td></tr>
+      <tr><td>Payment Terms</td><td><textarea id="payment"></textarea></td></tr>
+    </table>
+
+    <button class="btn" onclick="saveAndDownload()">Save & Download PDF</button>
+    <button class="btn reset-btn" onclick="resetForm()">Reset Form (Clear All)</button>
+    <p class="note">Enter Order No to save. Re-enter same Order No to edit later. Works offline.</p>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    // Load saved data
+    function loadForm() {
+      const orderNo = document.getElementById('orderNo').value.trim();
+      if (!orderNo) return;
+      const saved = localStorage.getItem(orderNo);
+      if (saved) {
+        const data = JSON.parse(saved);
+        Object.keys(data).forEach(k => {
+          const el = document.getElementById(k);
+          if (el) el.value = data[k];
+        });
+      }
+    }
+
+    // Auto-save
+    document.getElementById('orderNo').addEventListener('blur', loadForm);
+    document.querySelectorAll('input, textarea').forEach(el => {
+      el.addEventListener('input', () => {
+        const orderNo = document.getElementById('orderNo').value.trim();
+        if (!orderNo) return;
+        const data = {};
+        document.querySelectorAll('input, textarea').forEach(f => data[f.id] = f.value);
+        localStorage.setItem(orderNo, JSON.stringify(data));
+      });
+    });
+
+    // Download PDF
+    function saveAndDownload() {
+      const orderNo = document.getElementById('orderNo').value.trim();
+      if (!orderNo) return alert("Enter Order No!");
+      const safe = orderNo.replace(/[^a-zA-Z0-9_-]/g, '_');
+      html2canvas(document.getElementById('formContent')).then(canvas => {
+        const img = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const w = pdf.internal.pageSize.getWidth();
+        const h = (canvas.height * w) / canvas.width;
+        pdf.addImage(img, 'PNG', 0, 0, w, h);
+        pdf.save(`Sales_Order_${safe}.pdf`);
+      });
+    }
+
+    // Reset Form (Clear localStorage for this Order No)
+    function resetForm() {
+      if (confirm("Clear all data for this Order No?")) {
+        const orderNo = document.getElementById('orderNo').value.trim();
+        if (orderNo) localStorage.removeItem(orderNo);
+        document.querySelectorAll('input, textarea').forEach(el => el.value = '');
+        alert("Form reset!");
+      }
+    }
+  </script>
+</body>
+</html>

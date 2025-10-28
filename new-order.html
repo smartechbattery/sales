@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>New Sales Order</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     body { font-family: Arial; padding: 20px; background: #f9f9f9; }
     .form { max-width: 800px; margin: auto; background: white; padding: 25px; border: 1px solid #ccc; border-radius: 8px; }
@@ -50,10 +52,7 @@
     <textarea id="address" rows="2"></textarea>
 
     <table>
-      <tr>
-        <th>Product</th>
-        <th>Remark</th>
-      </tr>
+      <tr><th>Product</th><th>Remark</th></tr>
       <tr><td>Type</td><td><input type="text" id="type"></td></tr>
       <tr><td>Voltage</td><td><input type="text" id="voltage"></td></tr>
       <tr><td>Capacity</td><td><input type="text" id="capacity"></td></tr>
@@ -66,20 +65,22 @@
       <tr><td>Payment Terms</td><td><textarea id="payment"></textarea></td></tr>
     </table>
 
-    <button class="btn" onclick="saveAndGoBack()">Save & Return to Dashboard</button>
-    <button class="btn btn-back" onclick="window.location.href='dashboard.html'">Back to Dashboard</button>
-    <p class="note">This is a fresh form. Fill and save to create a new order.</p>
+    <button class="btn" onclick="saveAndGoBack()">Save & Return</button>
+    <button class="btn btn-back" onclick="window.location.href='dashboard.html'">Back</button>
+    <p class="note">Fresh form. Saved to GitHub → orders/[OrderNo].json</p>
   </div>
 
   <script>
     const { jsPDF } = window.jspdf;
+    const TOKEN = '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';
+    const REPO = 'smartechbattery/sales';
+    const PATH = 'orders';
 
-    // Auto-set today's date
     if (!document.getElementById('orderDate').value) {
       document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
     }
 
-    function saveAndGoBack() {
+    async function saveAndGoBack() {
       const orderNo = document.getElementById('orderNo').value.trim();
       if (!orderNo) return alert("Enter Order No!");
 
@@ -88,9 +89,17 @@
       data.status = 'Pending';
       data.createdAt = new Date().toISOString();
 
-      localStorage.setItem(orderNo, JSON.stringify(data));
-      alert(`Order ${orderNo} created!`);
-      window.location.href = 'dashboard.html';
+      const content = btoa(JSON.stringify(data, null, 2));
+
+      try {
+        await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+          method: 'PUT',
+          headers: { Authorization: `token ${TOKEN}` },
+          body: JSON.stringify({ message: `Create ${orderNo}`, content, branch: 'main' })
+        });
+        alert(`Saved: ${orderNo}`);
+        window.location.href = 'dashboard.html';
+      } catch (e) { alert("Save failed."); }
     }
   </script>
 </body>

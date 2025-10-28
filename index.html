@@ -19,7 +19,6 @@
     .btn:hover { background: #218838; }
     .note { font-size: 12px; color: #666; text-align: center; margin-top: 15px; }
     .required { color: red; }
-    .reset-btn { background: #dc3545; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -27,7 +26,7 @@
     <h2 style="text-align:center; margin-bottom:25px;">Sales Order Form</h2>
 
     <div class="label">Order No <span class="required">*</span></div>
-    <input type="text" id="orderNo" placeholder="e.g. SO-2025-001">
+    <input type="text" id="orderNo" placeholder="e.g. ORD-001">
 
     <div class="label">Order Date</div>
     <input type="date" id="orderDate">
@@ -51,10 +50,7 @@
     <textarea id="address" rows="2"></textarea>
 
     <table>
-      <tr>
-        <th>Product</th>
-        <th>Remark</th>
-      </tr>
+      <tr><th>Product</th><th>Remark</th></tr>
       <tr><td>Type</td><td><input type="text" id="type"></td></tr>
       <tr><td>Voltage</td><td><input type="text" id="voltage"></td></tr>
       <tr><td>Capacity</td><td><input type="text" id="capacity"></td></tr>
@@ -67,63 +63,81 @@
       <tr><td>Payment Terms</td><td><textarea id="payment"></textarea></td></tr>
     </table>
 
-    <button class="btn" onclick="saveAndDownload()">Save & Download PDF</button>
-    <button class="btn reset-btn" onclick="resetForm()">Reset Form (Clear All)</button>
-    <p class="note">Enter Order No to save. Re-enter same Order No to edit later. Works offline.</p>
+    <button class="btn" onclick="saveAndDownload()">Save to GitHub & Download PDF</button>
+    <p class="note">Saved as: <strong>orders/[OrderNo].json</strong> in GitHub</p>
   </div>
 
   <script>
     const { jsPDF } = window.jspdf;
+    const TOKEN = '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';
+    const REPO = 'smartechbattery/sales';
+    const PATH = 'orders';
 
-    // Load saved data
-    function loadForm() {
-      const orderNo = document.getElementById('orderNo').value.trim();
-      if (!orderNo) return;
-      const saved = localStorage.getItem(orderNo);
-      if (saved) {
-        const data = JSON.parse(saved);
-        Object.keys(data).forEach(k => {
-          const el = document.getElementById(k);
-          if (el) el.value = data[k];
+    const urlParams = new URLSearchParams(window.location.search);
+    const editId = urlParams.get('edit');
+    if (editId) {
+      document.getElementById('orderNo').value = editId;
+      loadOrder(editId);
+    }
+
+    async function loadOrder(orderNo) {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+          headers: { Authorization: `token ${TOKEN}` }
         });
+        if (res.ok) {
+          const data = await res.json();
+          const content = JSON.parse(atob(data.content));
+          Object.keys(content).forEach(k => {
+            const el = document.getElementById(k);
+            if (el) el.value = content[k];
+          });
+          alert(`Loaded: ${orderNo}`);
+        }
+      } catch (e) {}
+    }
+
+    async function saveAndDownload() {
+      const orderNo = document.getElementById('orderNo').value.trim();
+      if (!orderNo) return alert("Enter Order No!");
+
+      const data = {};
+      document.querySelectorAll('input, textarea').forEach(el => data[el.id] = el.value);
+      data.status = data.status || 'Pending';
+      data.createdAt = new Date().toISOString();
+
+      const content = btoa(JSON.stringify(data, null, 2));
+
+      try {
+        const existing = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+          headers: { Authorization: `token ${TOKEN}` }
+        });
+        const body = { message: `Update order ${orderNo}`, content, branch: 'main' };
+        if (existing.ok) body.sha = (await existing.json()).sha;
+
+        await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+          method: existing.ok ? 'PUT' : 'POST',
+          headers: { Authorization: `token ${TOKEN}` },
+          body: JSON.stringify(body)
+        });
+
+        alert(`Saved to GitHub: orders/${orderNo}.json`);
+        downloadPDF();
+      } catch (e) {
+        alert("Save failed. Check internet or token.");
       }
     }
 
-    // Auto-save
-    document.getElementById('orderNo').addEventListener('blur', loadForm);
-    document.querySelectorAll('input, textarea').forEach(el => {
-      el.addEventListener('input', () => {
-        const orderNo = document.getElementById('orderNo').value.trim();
-        if (!orderNo) return;
-        const data = {};
-        document.querySelectorAll('input, textarea').forEach(f => data[f.id] = f.value);
-        localStorage.setItem(orderNo, JSON.stringify(data));
-      });
-    });
-
-    // Download PDF
-    function saveAndDownload() {
+    function downloadPDF() {
       const orderNo = document.getElementById('orderNo').value.trim();
-      if (!orderNo) return alert("Enter Order No!");
-      const safe = orderNo.replace(/[^a-zA-Z0-9_-]/g, '_');
       html2canvas(document.getElementById('formContent')).then(canvas => {
         const img = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
         const w = pdf.internal.pageSize.getWidth();
         const h = (canvas.height * w) / canvas.width;
         pdf.addImage(img, 'PNG', 0, 0, w, h);
-        pdf.save(`Sales_Order_${safe}.pdf`);
+        pdf.save(`Sales_Order_${orderNo}.pdf`);
       });
-    }
-
-    // Reset Form (Clear localStorage for this Order No)
-    function resetForm() {
-      if (confirm("Clear all data for this Order No?")) {
-        const orderNo = document.getElementById('orderNo').value.trim();
-        if (orderNo) localStorage.removeItem(orderNo);
-        document.querySelectorAll('input, textarea').forEach(el => el.value = '');
-        alert("Form reset!");
-      }
     }
   </script>
 </body>

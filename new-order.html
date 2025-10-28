@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>New Order</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     body { font-family: Arial; padding: 20px; background: #f9f9f9; }
     .form { max-width: 800px; margin: auto; background: white; padding: 25px; border: 1px solid #ccc; border-radius: 8px; }
@@ -23,8 +21,8 @@
   </style>
 </head>
 <body>
-  <div class="form" id="formContent">
-    <h2 style="text-align:center; margin-bottom:25px;">Sales Order Form</h2>
+  <div class="form">
+    <h2 style="text-align:center;">Sales Order Form</h2>
 
     <div class="label">Order No <span style="color:red;">*</span></div>
     <input type="text" id="orderNo" placeholder="e.g. SO-2025-001" required>
@@ -70,7 +68,7 @@
   </div>
 
   <script>
-    const TOKEN = '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';
+    const TOKEN = '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';
     const REPO = 'smartechbattery/sales';
     const PATH = 'orders';
 
@@ -91,7 +89,7 @@
         if (existing.ok) body.sha = (await existing.json()).sha;
 
         await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
-          method: existing.ok ? 'PUT' : 'POST',
+          method: 'PUT',
           headers: { Authorization: `token ${TOKEN}` },
           body: JSON.stringify(body)
         });

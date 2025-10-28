@@ -1,7 +1,8 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>New Order</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
@@ -19,15 +20,14 @@
     .btn-back { background: #6c757d; }
     .btn-back:hover { background: #5a6268; }
     .note { font-size: 12px; color: #666; text-align: center; margin-top: 20px; }
-    .required { color: red; }
   </style>
 </head>
 <body>
   <div class="form" id="formContent">
     <h2 style="text-align:center; margin-bottom:25px;">Sales Order Form</h2>
 
-    <div class="label">Order No <span class="required">*</span></div>
-    <input type="text" id="orderNo" placeholder="e.g. SO-2025-001" required>
+    <div class="label">Order No <span style="color:red;">*</span> (Auto: SO-2025-001++)</div>
+    <input type="text" id="orderNo" placeholder="Auto-generated" readonly>
 
     <div class="label">Order Date</div>
     <input type="date" id="orderDate">
@@ -66,7 +66,7 @@
 
     <button class="btn" onclick="saveAndGoBack()">Save & Return</button>
     <button class="btn btn-back" onclick="window.location.href='dashboard.html'">Back</button>
-    <p class="note">Saved to GitHub → orders/[OrderNo].json</p>
+    <p class="note">Auto Order No → Saved to GitHub</p>
   </div>
 
   <script>
@@ -75,61 +75,42 @@
     const REPO = 'smartechbattery/sales';
     const PATH = 'orders';
 
-    // Auto-fill date
     document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
 
+    async function generateOrderNo() {
+      const year = new Date().getFullYear();
+      const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}`, { headers: { Authorization: `token ${TOKEN}` }});
+      let count = 1;
+      if (res.ok) {
+        const files = await res.json();
+        files.forEach(f => {
+          if (f.name.startsWith(`SO-${year}-`)) {
+            const num = parseInt(f.name.match(/\d+/)[0]);
+            if (num >= count) count = num + 1;
+          }
+        });
+      }
+      return `SO-${year}-${String(count).padStart(3, '0')}`;
+    }
+
+    (async () => { document.getElementById('orderNo').value = await generateOrderNo(); })();
+
     async function saveAndGoBack() {
-      const orderNo = document.getElementById('orderNo').value.trim();
-      if (!orderNo) return alert("Enter Order No!");
-
-      const data = {
-        orderNo, name: document.getElementById('name').value,
-        brand: document.getElementById('brand').value,
-        oem: document.getElementById('oem').value,
-        mobile: document.getElementById('mobile').value,
-        gst: document.getElementById('gst').value,
-        address: document.getElementById('address').value,
-        type: document.getElementById('type').value,
-        voltage: document.getElementById('voltage').value,
-        capacity: document.getElementById('capacity').value,
-        discharge: document.getElementById('discharge').value,
-        charging: document.getElementById('charging').value,
-        bms: document.getElementById('bms').value,
-        size: document.getElementById('size').value,
-        casing: document.getElementById('casing').value,
-        instructions: document.getElementById('instructions').value,
-        payment: document.getElementById('payment').value,
-        status: 'Pending',
-        createdAt: new Date().toISOString()
-      };
-
+      const orderNo = document.getElementById('orderNo').value;
+      const data = {};
+      document.querySelectorAll('input, textarea').forEach(f => data[f.id] = f.value);
+      data.status = 'Pending'; data.createdAt = new Date().toISOString();
       const content = btoa(JSON.stringify(data, null, 2));
 
       try {
-        // GET existing file
-        const getRes = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
-          headers: { 'Authorization': `token ${TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
-        });
-
-        let body = { message: `Create order ${orderNo}`, content, branch: 'main' };
-        if (getRes.ok) {
-          const info = await getRes.json();
-          body.sha = info.sha;
-          body.message = `Update order ${orderNo}`;
-        }
-
         await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
           method: 'PUT',
-          headers: { 'Authorization': `token ${TOKEN}`, 'Accept': 'application/vnd.github.v3+json' },
-          body: JSON.stringify(body)
+          headers: { Authorization: `token ${TOKEN}` },
+          body: JSON.stringify({ message: `Create ${orderNo}`, content, branch: 'main' })
         });
-
         alert(`Saved: ${orderNo}`);
-        window.location.href = 'dashboard.html?refresh=' + Date.now();
-      } catch (e) {
-        console.error(e);
-        alert("Save failed. Check internet or Order No.");
-      }
+        window.location.href = 'dashboard.html';
+      } catch (e) { alert("Save failed."); }
     }
   </script>
 </body>

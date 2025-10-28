@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Master Dashboard</title>
+  <title>Sales Order Master Dashboard</title>
   <style>
     body { font-family: Arial; margin: 0; background: #f4f6f9; }
     .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
@@ -11,6 +11,8 @@
     .btn { background: #27ae60; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }
     .btn:hover { background: #219a52; }
     .refresh { background: #007bff; }
+    .stats { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; }
+    .stat { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; min-width: 100px; }
     table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
     th { background: #ffc107; padding: 15px; text-align: left; font-weight: bold; color: #000; }
     td { padding: 12px; border-bottom: 1px solid #eee; }
@@ -27,10 +29,15 @@
       <button class="btn" onclick="window.open('index.html')">Team Form</button>
       <button class="btn refresh" onclick="loadOrders()">Refresh Now</button>
     </div>
-    <div id="status">Loading orders...</div>
+    <div class="stats">
+      <div class="stat"><strong>Total Orders</strong><br><span id="total">0</span></div>
+      <div class="stat"><strong>Pending</strong><br><span id="pending">0</span></div>
+      <div class="stat"><strong>Approved</strong><br><span id="approved">0</span></div>
+      <div class="stat"><strong>Shipped</strong><br><span id="shipped">0</span></div>
+    </div>
     <table id="table">
-      <thead><tr><th>Order No</th><th>Name</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody id="body"></tbody>
+      <thead><tr><th>Order No</th><th>Name</th><th>Mobile</th><th>Date Created</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="body"><tr><td colspan="6" class="no-data">Loading orders...</td></tr></tbody>
     </table>
   </div>
 
@@ -41,33 +48,37 @@
 
     async function loadOrders() {
       const tbody = document.getElementById('body');
-      const statusEl = document.getElementById('status');
-      statusEl.textContent = 'Loading...';
-      tbody.innerHTML = '';
+      tbody.innerHTML = '<tr><td colspan="6" class="no-data">Loading...</td></tr>';
 
       try {
         const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}`, {
           headers: { 'Authorization': `token ${TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
         });
 
+        if (res.status === 404) {
+          tbody.innerHTML = '<tr><td colspan="6" class="no-data">Folder "orders" not found. Create first order!</td></tr>';
+          return;
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const files = await res.json();
-        statusEl.textContent = `Found ${files.length} orders`;
-
-        if (files.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="no-data">No orders yet. Create one!</td></tr>';
-          return;
-        }
+        tbody.innerHTML = '';
+        let total = 0, pending = 0, approved = 0, shipped = 0;
 
         for (let file of files) {
           if (file.name.endsWith('.json')) {
             const dataRes = await fetch(file.download_url + '?t=' + Date.now());
             const data = await dataRes.json();
+            total++;
+            if (data.status === 'Pending') pending++;
+            if (data.status === 'Approved') approved++;
+            if (data.status === 'Shipped') shipped++;
+
             const row = document.createElement('tr');
             row.innerHTML = `
               <td><strong>${data.orderNo}</strong></td>
               <td>${data.name || '—'}</td>
+              <td>${data.mobile || '—'}</td>
               <td>${new Date(data.createdAt).toLocaleString('en-IN')}</td>
               <td>
                 <select class="status" onchange="updateStatus('${file.name}', this.value)">
@@ -77,38 +88,43 @@
                 </select>
               </td>
               <td class="actions">
-                <button onclick="editOrder('${data.orderNo}')">Edit</button>
-                <button onclick="printPDF('${data.orderNo}')">PDF</button>
+                <button onclick="window.open('index.html?edit=${data.orderNo}')">Edit</button>
+                <button onclick="window.open('index.html?edit=${data.orderNo}&pdf=1')">PDF</button>
                 <button onclick="window.open('${file.download_url}')">JSON</button>
               </td>
             `;
             tbody.appendChild(row);
           }
         }
+
+        document.getElementById('total').textContent = total;
+        document.getElementById('pending').textContent = pending;
+        document.getElementById('approved').textContent = approved;
+        document.getElementById('shipped').textContent = shipped;
+
+        if (total === 0) tbody.innerHTML = '<tr><td colspan="6" class="no-data">No orders yet. Create one!</td></tr>';
       } catch (e) {
         console.error(e);
-        statusEl.textContent = 'Error loading. Check internet.';
-        tbody.innerHTML = '<tr><td colspan="5" class="no-data">Failed to load. <button onclick="loadOrders()">Retry</button></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">Failed to load. <button onclick="loadOrders()">Retry</button></td></tr>';
       }
     }
 
-    function editOrder(id) {
-      window.open(`index.html?edit=${id}`);
-    }
-
-    function printPDF(id) {
-      window.open(`index.html?edit=${id}&pdf=1`);
-    }
-
     async function updateStatus(filename, status) {
-      // ... same as before
+      const file = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${filename}`, { headers: { Authorization: `token ${TOKEN}` }});
+      const info = await file.json();
+      const data = JSON.parse(atob(info.content));
+      data.status = status;
+      const content = btoa(JSON.stringify(data, null, 2));
+      await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${filename}`, {
+        method: 'PUT',
+        headers: { Authorization: `token ${TOKEN}` },
+        body: JSON.stringify({ message: `Status: ${status}`, content, sha: info.sha, branch: 'main' })
+      });
+      loadOrders();
     }
 
-    // Auto load
-    window.onload = () => {
-      loadOrders();
-      setInterval(loadOrders, 20000);
-    };
+    loadOrders();
+    setInterval(loadOrders, 20000);
   </script>
 </body>
 </html>

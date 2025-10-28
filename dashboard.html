@@ -24,10 +24,11 @@
       <h1>Sales Order Master Dashboard</h1>
       <button class="btn" onclick="window.open('new-order.html')">+ Create New</button>
       <button class="btn" onclick="window.open('index.html')">Team Form</button>
+      <button class="btn" onclick="loadOrders()" style="background:#007bff;">Refresh</button>
     </div>
     <table id="table">
       <thead><tr><th>Order No</th><th>Name</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody id="body"><tr><td colspan="5" class="no-data">Loading orders...</td></tr></tbody>
+      <tbody id="body"><tr><td colspan="5" class="no-data">Loading...</td></tr></tbody>
     </table>
   </div>
 
@@ -38,16 +39,25 @@
 
     async function loadOrders() {
       const tbody = document.getElementById('body');
+      tbody.innerHTML = '<tr><td colspan="5" class="no-data">Loading orders...</td></tr>';
+
       try {
-        const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}`, {
+        const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}?ref=main`, {
           headers: { Authorization: `token ${TOKEN}` }
         });
+        if (!res.ok) throw new Error("Failed to fetch");
+
         const files = await res.json();
         tbody.innerHTML = '';
 
+        if (files.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="no-data">No orders created yet.</td></tr>';
+          return;
+        }
+
         for (let file of files) {
           if (file.name.endsWith('.json')) {
-            const dataRes = await fetch(file.download_url);
+            const dataRes = await fetch(file.download_url + '?t=' + Date.now()); // Cache bust
             const data = await dataRes.json();
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -63,16 +73,16 @@
               </td>
               <td class="actions">
                 <button onclick="window.open('index.html?edit=${data.orderNo}')">Edit</button>
-                <button onclick="downloadPDF('${data.orderNo}')">PDF</button>
-                <button onclick="viewJSON('${file.download_url}')">JSON</button>
+                <button onclick="window.open('index.html?edit=${data.orderNo}&pdf=1')">PDF</button>
+                <button onclick="window.open('${file.download_url}')">JSON</button>
               </td>
             `;
             tbody.appendChild(row);
           }
         }
-        if (!files.length) tbody.innerHTML = '<tr><td colspan="5" class="no-data">No orders yet.</td></tr>';
       } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="5" class="no-data">Error loading.</td></tr>';
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="5" class="no-data">Error loading orders. Try Refresh.</td></tr>';
       }
     }
 
@@ -87,19 +97,14 @@
       await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${filename}`, {
         method: 'PUT',
         headers: { Authorization: `token ${TOKEN}` },
-        body: JSON.stringify({ message: `Update status`, content, sha: info.sha, branch: 'main' })
+        body: JSON.stringify({ message: `Update status to ${status}`, content, sha: info.sha, branch: 'main' })
       });
       loadOrders();
     }
 
-    function downloadPDF(orderNo) {
-      window.open(`index.html?edit=${orderNo}&pdf=1`);
-    }
-
-    function viewJSON(url) { window.open(url); }
-
+    // Auto-refresh every 15 seconds
     loadOrders();
-    setInterval(loadOrders, 30000);
+    setInterval(loadOrders, 15000);
   </script>
 </body>
 </html>

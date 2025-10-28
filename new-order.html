@@ -1,9 +1,8 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>New Sales Order</title>
+  <title>New Order</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
@@ -67,7 +66,7 @@
 
     <button class="btn" onclick="saveAndGoBack()">Save & Return</button>
     <button class="btn btn-back" onclick="window.location.href='dashboard.html'">Back</button>
-    <p class="note">Fresh form → Saved to GitHub</p>
+    <p class="note">Saved to GitHub → orders/[OrderNo].json</p>
   </div>
 
   <script>
@@ -76,6 +75,7 @@
     const REPO = 'smartechbattery/sales';
     const PATH = 'orders';
 
+    // Auto-fill date
     if (!document.getElementById('orderDate').value) {
       document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
     }
@@ -92,14 +92,32 @@
       const content = btoa(JSON.stringify(data, null, 2));
 
       try {
-        await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
-          method: 'PUT',
-          headers: { Authorization: `token ${TOKEN}` },
-          body: JSON.stringify({ message: `Create ${orderNo}`, content, branch: 'main' })
+        // Try to get existing file
+        let method = 'PUT';
+        let body = { message: `Create order ${orderNo}`, content, branch: 'main' };
+
+        const existing = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+          headers: { Authorization: `token ${TOKEN}` }
         });
+
+        if (existing.ok) {
+          const info = await existing.json();
+          body.sha = info.sha;
+          body.message = `Update order ${orderNo}`;
+        }
+
+        await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+          method,
+          headers: { Authorization: `token ${TOKEN}` },
+          body: JSON.stringify(body)
+        });
+
         alert(`Saved: ${orderNo}`);
         window.location.href = 'dashboard.html';
-      } catch (e) { alert("Save failed."); }
+      } catch (e) {
+        console.error(e);
+        alert("Save failed. Check Order No or internet.");
+      }
     }
   </script>
 </body>

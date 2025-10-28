@@ -27,7 +27,7 @@
 </head>
 <body>
 
-  <!-- PASSWORD SCREEN -->
+  <!-- PASSWORD -->
   <div id="passwordScreen" class="password">
     <h2>Enter Password</h2>
     <input type="password" id="passInput" placeholder="Password">
@@ -35,7 +35,7 @@
     <p style="color:#666; margin-top:10px;">Hint: smart123</p>
   </div>
 
-  <!-- MAIN FORM -->
+  <!-- FORM -->
   <div id="mainForm" class="container" style="display:none;">
     <h1>Sales Order Form</h1>
 
@@ -108,11 +108,13 @@
         const body = { message: `Update ${orderNo}`, content, branch: 'main' };
         if (existing.ok) body.sha = (await existing.json()).sha;
 
-        await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+        const saveRes = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
           method: 'PUT',
           headers: { Authorization: `token ${TOKEN}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
+
+        if (!saveRes.ok) throw new Error(`Save failed: ${saveRes.status}`);
 
         alert(`Saved: ${orderNo}`);
         setTimeout(downloadPDF, 500);

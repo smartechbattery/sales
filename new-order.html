@@ -88,11 +88,13 @@
         const body = { message: `Update ${orderNo}`, content, branch: 'main' };
         if (existing.ok) body.sha = (await existing.json()).sha;
 
-        await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+        const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
           method: 'PUT',
-          headers: { Authorization: `token ${TOKEN}` },
+          headers: { Authorization: `token ${TOKEN}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         alert(`Saved: ${orderNo}`);
         window.location.href = 'dashboard.html?t=' + Date.now();

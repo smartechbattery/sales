@@ -19,10 +19,23 @@
     .btn:hover { background: #218838; }
     .note { font-size: 12px; color: #666; text-align: center; margin-top: 15px; }
     .required { color: red; }
+    .password { max-width: 400px; margin: 100px auto; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+    .password input { width: 80%; padding: 10px; margin: 10px 0; font-size: 16px; }
+    .password button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
   </style>
 </head>
 <body>
-  <div class="form" id="formContent">
+
+  <!-- PASSWORD SCREEN -->
+  <div id="passwordScreen" class="password">
+    <h2>Enter Password</h2>
+    <input type="password" id="passInput" placeholder="Password">
+    <button onclick="checkPassword()">Enter</button>
+    <p style="color:#666; margin-top:10px;">Hint: smart123</p>
+  </div>
+
+  <!-- MAIN FORM (HIDDEN UNTIL PASSWORD) -->
+  <div id="mainForm" class="form" style="display:none;" id="formContent">
     <h2 style="text-align:center; margin-bottom:25px;">Sales Order Form</h2>
 
     <div class="label">Order No <span class="required">*</span></div>
@@ -63,8 +76,8 @@
       <tr><td>Payment Terms</td><td><textarea id="payment"></textarea></td></tr>
     </table>
 
-    <button class="btn" onclick="saveAndDownload()">Save to GitHub & Download PDF</button>
-    <p class="note">Saved as: <strong>orders/[OrderNo].json</strong> in GitHub</p>
+    <button class="btn" onclick="saveAndDownload()">Save & Download PDF</button>
+    <p class="note">Saved to GitHub → orders/[OrderNo].json</p>
   </div>
 
   <script>
@@ -73,12 +86,25 @@
     const REPO = 'smartechbattery/sales';
     const PATH = 'orders';
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const editId = urlParams.get('edit');
-    if (editId) {
-      document.getElementById('orderNo').value = editId;
-      loadOrder(editId);
+    // PASSWORD CHECK
+    function checkPassword() {
+      const pass = document.getElementById('passInput').value;
+      if (pass === 'smart123') {
+        document.getElementById('passwordScreen').style.display = 'none';
+        document.getElementById('mainForm').style.display = 'block';
+        const urlParams = new URLSearchParams(window.location.search);
+        const editId = urlParams.get('edit');
+        if (editId) {
+          document.getElementById('orderNo').value = editId;
+          loadOrder(editId);
+        }
+      } else {
+        alert("Wrong password!");
+      }
     }
+
+    // ENTER key to submit password
+    document.getElementById('passInput').addEventListener('keypress', e => { if (e.key === 'Enter') checkPassword(); });
 
     async function loadOrder(orderNo) {
       try {
@@ -92,7 +118,6 @@
             const el = document.getElementById(k);
             if (el) el.value = content[k];
           });
-          alert(`Loaded: ${orderNo}`);
         }
       } catch (e) {}
     }
@@ -112,7 +137,7 @@
         const existing = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
           headers: { Authorization: `token ${TOKEN}` }
         });
-        const body = { message: `Update order ${orderNo}`, content, branch: 'main' };
+        const body = { message: `Update ${orderNo}`, content, branch: 'main' };
         if (existing.ok) body.sha = (await existing.json()).sha;
 
         await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
@@ -121,11 +146,9 @@
           body: JSON.stringify(body)
         });
 
-        alert(`Saved to GitHub: orders/${orderNo}.json`);
+        alert(`Saved: ${orderNo}`);
         downloadPDF();
-      } catch (e) {
-        alert("Save failed. Check internet or token.");
-      }
+      } catch (e) { alert("Save failed."); }
     }
 
     function downloadPDF() {

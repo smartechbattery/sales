@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>New Sales Order</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f9f9f9; }
+    .form { max-width: 800px; margin: auto; background: white; padding: 25px; border: 1px solid #ccc; border-radius: 8px; }
+    .label { font-weight: bold; margin-top: 15px; display: block; }
+    input, textarea { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ccc; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 25px 0; }
+    th { background: #ffc107; padding: 12px; text-align: center; font-weight: bold; color: #000; }
+    td { padding: 10px; border: 1px solid #ccc; }
+    td input, td textarea { border: none; background: transparent; width: 100%; }
+    .btn { background: #27ae60; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 10px 5px 0 0; }
+    .btn:hover { background: #219a52; }
+    .btn-back { background: #6c757d; }
+    .btn-back:hover { background: #5a6268; }
+    .note { font-size: 12px; color: #666; text-align: center; margin-top: 20px; }
+    .required { color: red; }
+  </style>
+</head>
+<body>
+  <div class="form" id="formContent">
+    <h2 style="text-align:center; margin-bottom:25px;">Sales Order Form</h2>
+
+    <div class="label">Order No <span class="required">*</span></div>
+    <input type="text" id="orderNo" placeholder="Enter new Order No (e.g. SO-2025-001)" required>
+
+    <div class="label">Order Date</div>
+    <input type="date" id="orderDate">
+
+    <div class="label">Name</div>
+    <input type="text" id="name">
+
+    <div class="label">Brand Name</div>
+    <input type="text" id="brand">
+
+    <div class="label">OEM</div>
+    <input type="text" id="oem">
+
+    <div class="label">Mobile Number</div>
+    <input type="text" id="mobile">
+
+    <div class="label">GST No</div>
+    <input type="text" id="gst">
+
+    <div class="label">Address</div>
+    <textarea id="address" rows="2"></textarea>
+
+    <table>
+      <tr>
+        <th>Product</th>
+        <th>Remark</th>
+      </tr>
+      <tr><td>Type</td><td><input type="text" id="type"></td></tr>
+      <tr><td>Voltage</td><td><input type="text" id="voltage"></td></tr>
+      <tr><td>Capacity</td><td><input type="text" id="capacity"></td></tr>
+      <tr><td>Maximum Discharge current</td><td><input type="text" id="discharge"></td></tr>
+      <tr><td>Maximum Charging current</td><td><input type="text" id="charging"></td></tr>
+      <tr><td>BMS Type</td><td><input type="text" id="bms"></td></tr>
+      <tr><td>Size</td><td><input type="text" id="size"></td></tr>
+      <tr><td>Casing Type</td><td><input type="text" id="casing"></td></tr>
+      <tr><td>Other Instructions</td><td><textarea id="instructions"></textarea></td></tr>
+      <tr><td>Payment Terms</td><td><textarea id="payment"></textarea></td></tr>
+    </table>
+
+    <button class="btn" onclick="saveAndGoBack()">Save & Return to Dashboard</button>
+    <button class="btn btn-back" onclick="window.location.href='dashboard.html'">Back to Dashboard</button>
+    <p class="note">This is a fresh form. Fill and save to create a new order.</p>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    // Auto-set today's date
+    if (!document.getElementById('orderDate').value) {
+      document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
+    }
+
+    function saveAndGoBack() {
+      const orderNo = document.getElementById('orderNo').value.trim();
+      if (!orderNo) return alert("Enter Order No!");
+
+      const data = {};
+      document.querySelectorAll('input, textarea').forEach(f => data[f.id] = f.value);
+      data.status = 'Pending';
+      data.createdAt = new Date().toISOString();
+
+      localStorage.setItem(orderNo, JSON.stringify(data));
+      alert(`Order ${orderNo} created!`);
+      window.location.href = 'dashboard.html';
+    }
+  </script>
+</body>
+</html>

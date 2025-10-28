@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SMARTCH Master Dashboard</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f6f9; }
+    .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { color: #2c3e50; margin: 0; font-size: 28px; }
+    .btn { 
+      background: #3498db; color: white; padding: 12px 24px; border: none; border-radius: 6px; 
+      cursor: pointer; font-size: 16px; font-weight: bold; text-decoration: none; display: inline-block;
+      margin: 5px;
+    }
+    .btn:hover { background: #2980b9; }
+    .btn-new { background: #27ae60; }
+    .btn-new:hover { background: #219a52; }
+    .search { 
+      width: 100%; padding: 14px; margin: 20px 0; font-size: 16px; border: 1px solid #ddd; 
+      border-radius: 6px; box-sizing: border-box;
+    }
+    table { 
+      width: 100%; border-collapse: collapse; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+      border-radius: 10px; overflow: hidden;
+    }
+    th { 
+      background: #ffc107; padding: 16px; text-align: left; font-weight: bold; color: #000; 
+      font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    td { padding: 14px; border-bottom: 1px solid #eee; font-size: 14px; }
+    tr:hover { background: #f8f9fa; }
+    .status { 
+      padding: 6px 14px; border-radius: 20px; color: white; font-size: 12px; font-weight: bold; 
+      min-width: 80px; text-align: center; display: inline-block;
+    }
+    .pending { background: #f39c12; }
+    .approved { background: #27ae60; }
+    .shipped { background: #2980b9; }
+    select.status { 
+      padding: 6px; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; 
+      color: white; cursor: pointer;
+    }
+    .actions button { 
+      background: none; border: none; font-size: 18px; cursor: pointer; margin: 0 6px; 
+      padding: 6px; border-radius: 4px; transition: 0.2s;
+    }
+    .actions button:hover { background: #eee; }
+    .no-data { text-align: center; padding: 40px; color: #95a5a6; font-style: italic; }
+    .summary { 
+      display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; 
+    }
+    .card { 
+      background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+      flex: 1; min-width: 150px; text-align: center;
+    }
+    .card h3 { margin: 0; color: #2c3e50; font-size: 14px; }
+    .card p { margin: 8px 0 0; font-size: 24px; font-weight: bold; color: #3498db; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Sales Order Master Dashboard</h1>
+      <div style="margin-top:15px;">
+        <a href="new-order.html" target="_blank" class="btn btn-new">+ Create New Order</a>
+        <a href="index.html" target="_blank" class="btn">Team Form</a>
+      </div>
+    </div>
+
+    <div class="summary">
+      <div class="card">
+        <h3>Total Orders</h3>
+        <p id="total">0</p>
+      </div>
+      <div class="card">
+        <h3>Pending</h3>
+        <p id="pending">0</p>
+      </div>
+      <div class="card">
+        <h3>Approved</h3>
+        <p id="approved">0</p>
+      </div>
+      <div class="card">
+        <h3>Shipped</h3>
+        <p id="shipped">0</p>
+      </div>
+    </div>
+
+    <input type="text" class="search" id="search" placeholder="Search by Order No, Name, Mobile..." onkeyup="filter()">
+
+    <table id="ordersTable">
+      <thead>
+        <tr>
+          <th>Order No</th>
+          <th>Name</th>
+          <th>Mobile</th>
+          <th>Date Created</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="ordersBody">
+        <tr><td colspan="6" class="no-data">Loading orders...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function loadOrders() {
+      const tbody = document.getElementById('ordersBody');
+      const totalEl = document.getElementById('total');
+      const pendingEl = document.getElementById('pending');
+      const approvedEl = document.getElementById('approved');
+      const shippedEl = document.getElementById('shipped');
+
+      const orders = [];
+      let total = 0, pending = 0, approved = 0, shipped = 0;
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key !== 'loglevel:webpack-dev-server') {
+          try {
+            const data = JSON.parse(localStorage.getItem(key));
+            if (data.orderNo) {
+              orders.push({ id: key, ...data });
+              total++;
+              const status = data.status || 'Pending';
+              if (status === 'Pending') pending++;
+              else if (status === 'Approved') approved++;
+              else if (status === 'Shipped') shipped++;
+            }
+          } catch (e) {}
+        }
+      }
+
+      totalEl.textContent = total;
+      pendingEl.textContent = pending;
+      approvedEl.textContent = approved;
+      shippedEl.textContent = shipped;
+
+      if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No orders created yet. Use "Create New Order" or ask team to fill the form.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      orders.sort((a, b) => (b.createdAt || b.orderDate || '').localeCompare(a.createdAt || a.orderDate || '')).forEach(order => {
+        const status = order.status || 'Pending';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>${order.orderNo}</strong></td>
+          <td>${order.name || '—'}</td>
+          <td>${order.mobile || '—'}</td>
+          <td>${formatDate(order.createdAt || order.orderDate) || '—'}</td>
+          <td>
+            <select class="status ${status.toLowerCase()}" onchange="updateStatus('${order.id}', this.value)">
+              <option value="Pending" ${status==='Pending'?'selected':''}>Pending</option>
+              <option value="Approved" ${status==='Approved'?'selected':''}>Approved</option>
+              <option value="Shipped" ${status==='Shipped'?'selected':''}>Shipped</option>
+            </select>
+          </td>
+          <td class="actions">
+            <button onclick="editOrder('${order.id}')" title="Edit">Edit</button>
+            <button onclick="downloadPDF('${order.id}')" title="PDF">PDF</button>
+            <button onclick="deleteOrder('${order.id}')" title="Delete">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-IN') + ' ' + d.toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'});
+    }
+
+    function updateStatus(id, status) {
+      const data = JSON.parse(localStorage.getItem(id) || '{}');
+      data.status = status;
+      localStorage.setItem(id, JSON.stringify(data));
+      loadOrders();
+    }
+
+    function editOrder(id) {
+      window.open(`index.html?edit=${id}`, '_blank');
+    }
+
+    function downloadPDF(id) {
+      window.open(`index.html?edit=${id}&pdf=1`, '_blank');
+    }
+
+    function deleteOrder(id) {
+      if (confirm(`Delete order ${id} permanently?`)) {
+        localStorage.removeItem(id);
+        loadOrders();
+      }
+    }
+
+    function filter() {
+      const term = document.getElementById('search').value.toLowerCase();
+      document.querySelectorAll('#ordersBody tr').forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(term) ? '' : 'none';
+      });
+    }
+
+    setInterval(loadOrders, 10000);
+    window.onload = loadOrders;
+  </script>
+</body>
+</html>

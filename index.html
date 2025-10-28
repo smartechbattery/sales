@@ -54,4 +54,83 @@
       <tr><td>Voltage</td><td class="input"><input type="text" id="voltage" style="border:none; width:100%;"></td></tr>
       <tr><td>Capacity</td><td class="input"><input type="text" id="capacity" style="border:none; width:100%;"></td></tr>
       <tr><td>Maximum Discharge current</td><td class="input"><input type="text" id="discharge" style="border:none; width:100%;"></td></tr>
-      <tr><td>Maximum Charging current</td><td class="input"><input type="text
+      <tr><td>Maximum Charging current</td><td class="input"><input type="text" id="charging" style="border:none; width:100%;"></td></tr>
+      <tr><td>BMS Type</td><td class="input"><input type="text" id="bms" style="border:none; width:100%;"></td></tr>
+      <tr><td>Size</td><td class="input"><input type="text" id="size" style="border:none; width:100%;"></td></tr>
+      <tr><td>Casing Type</td><td class="input"><input type="text" id="casing" style="border:none; width:100%;"></td></tr>
+      <tr><td>Other Instructions</td><td class="input"><textarea id="instructions" style="border:none; width:100%; height:50px; resize:none;"></textarea></td></tr>
+      <tr><td>Payment Terms</td><td class="input"><textarea id="payment" style="border:none; width:100%; height:50px; resize:none;"></textarea></td></tr>
+    </table>
+
+    <button class="btn" onclick="saveAndDownload()">Save & Download PDF</button>
+    <p class="note">Saved to GitHub → orders/[OrderNo].json</p>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+    const TOKEN = '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';
+    const REPO = 'smartechbattery/sales';
+    const PATH = 'orders';
+
+    function checkPassword() {
+      if (document.getElementById('passInput').value === 'smart123') {
+        document.getElementById('passwordScreen').style.display = 'none';
+        document.getElementById('mainForm').style.display = 'block';
+        document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
+        const editId = new URLSearchParams(window.location.search).get('edit');
+        if (editId) { document.getElementById('orderNo').value = editId; loadOrder(editId); }
+      } else alert("Wrong password!");
+    }
+    document.getElementById('passInput').addEventListener('keypress', e => { if (e.key === 'Enter') checkPassword(); });
+
+    async function loadOrder(orderNo) {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, { headers: { Authorization: `token ${TOKEN}` }});
+        if (res.ok) {
+          const data = await res.json();
+          const content = JSON.parse(atob(data.content));
+          Object.keys(content).forEach(k => { const el = document.getElementById(k); if (el) el.value = content[k]; });
+        }
+      } catch (e) {}
+    }
+
+    async function saveAndDownload() {
+      const orderNo = document.getElementById('orderNo').value.trim();
+      if (!orderNo) return alert("Enter Order No!");
+
+      const data = {};
+      document.querySelectorAll('input, textarea').forEach(el => data[el.id] = el.value);
+      data.status = 'Pending'; data.createdAt = new Date().toISOString();
+      const content = btoa(JSON.stringify(data, null, 2));
+
+      try {
+        const existing = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, { headers: { Authorization: `token ${TOKEN}` }});
+        const body = { message: `Update ${orderNo}`, content, branch: 'main' };
+        if (existing.ok) body.sha = (await existing.json()).sha;
+
+        await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+          method: existing.ok ? 'PUT' : 'POST',
+          headers: { Authorization: `token ${TOKEN}` },
+          body: JSON.stringify(body)
+        });
+
+        alert(`Saved: ${orderNo}`);
+        setTimeout(downloadPDF, 500);
+      } catch (e) { alert("Save failed: " + e.message); }
+    }
+
+    function downloadPDF() {
+      html2canvas(document.querySelector('.container'), { scale: 2 }).then(canvas => {
+        const img = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const w = pdf.internal.pageSize.getWidth();
+        const h = (canvas.height * w) / canvas.width;
+        pdf.addImage(img, 'PNG', 0, 0, w, h);
+        pdf.save(`Sales_Order_${document.getElementById('orderNo').value}.pdf`);
+      });
+    }
+
+    if (new URLSearchParams(window.location.search).get('pdf') === '1') setTimeout(downloadPDF, 1000);
+  </script>
+</body>
+</html>

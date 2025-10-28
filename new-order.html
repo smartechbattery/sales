@@ -74,7 +74,6 @@
     const REPO = 'smartechbattery/sales';
     const PATH = 'orders';
 
-    // Auto date
     document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
 
     async function saveAndGoBack() {
@@ -83,37 +82,23 @@
 
       const data = {};
       document.querySelectorAll('input, textarea').forEach(el => data[el.id] = el.value);
-      data.status = 'Pending';
-      data.createdAt = new Date().toISOString();
-
+      data.status = 'Pending'; data.createdAt = new Date().toISOString();
       const content = btoa(JSON.stringify(data, null, 2));
 
       try {
-        // Check if file exists
-        const existingRes = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
-          headers: { Authorization: `token ${TOKEN}` }
-        });
+        const existing = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, { headers: { Authorization: `token ${TOKEN}` }});
+        const body = { message: `Update ${orderNo}`, content, branch: 'main' };
+        if (existing.ok) body.sha = (await existing.json()).sha;
 
-        const body = { message: `Create ${orderNo}`, content, branch: 'main' };
-        if (existingRes.ok) {
-          const info = await existingRes.json();
-          body.sha = info.sha;
-          body.message = `Update ${orderNo}`;
-        }
-
-        // Always use PUT
         await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
-          method: 'PUT',
-          headers: { Authorization: `token ${TOKEN}`, 'Content-Type': 'application/json' },
+          method: existing.ok ? 'PUT' : 'POST',
+          headers: { Authorization: `token ${TOKEN}` },
           body: JSON.stringify(body)
         });
 
         alert(`Saved: ${orderNo}`);
         window.location.href = 'dashboard.html?t=' + Date.now();
-      } catch (e) {
-        console.error(e);
-        alert("Save failed. Check Order No or internet.");
-      }
+      } catch (e) { alert("Save failed: " + e.message); }
     }
   </script>
 </body>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Master Dashboard</title>
+  <title>Sales Order Master Dashboard</title>
   <style>
     body { font-family: Arial; margin: 0; background: #f4f6f9; }
     .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
@@ -55,14 +55,15 @@
           headers: { Authorization: `token ${TOKEN}` }
         });
 
-        if (!res.ok) {
-          if (res.status === 404) {
-            tbody.innerHTML = '<tr><td colspan="6" class="no-data">Folder not found. Create first order!</td></tr>';
-          } else {
-            throw new Error(`HTTP ${res.status}`);
-          }
+        if (res.status === 401) {
+          tbody.innerHTML = '<tr><td colspan="6" class="no-data">Token invalid. Check scope.</td></tr>';
           return;
         }
+        if (res.status === 404) {
+          tbody.innerHTML = '<tr><td colspan="6" class="no-data">Folder not found. Create first order!</td></tr>';
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const files = await res.json();
         tbody.innerHTML = '';

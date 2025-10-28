@@ -20,14 +20,13 @@
     .btn-back { background: #6c757d; }
     .btn-back:hover { background: #5a6268; }
     .note { font-size: 12px; color: #666; text-align: center; margin-top: 20px; }
-    .required { color: red; }
   </style>
 </head>
 <body>
   <div class="form" id="formContent">
     <h2 style="text-align:center; margin-bottom:25px;">Sales Order Form</h2>
 
-    <div class="label">Order No <span class="required">*</span></div>
+    <div class="label">Order No <span style="color:red;">*</span></div>
     <input type="text" id="orderNo" placeholder="e.g. SO-2025-001" required>
 
     <div class="label">Order Date</div>
@@ -71,11 +70,11 @@
   </div>
 
   <script>
-    const { jsPDF } = window.jspdf;
     const TOKEN = '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';
     const REPO = 'smartechbattery/sales';
     const PATH = 'orders';
 
+    // Auto date
     document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
 
     async function saveAndGoBack() {
@@ -83,35 +82,38 @@
       if (!orderNo) return alert("Enter Order No!");
 
       const data = {};
-      document.querySelectorAll('input, textarea').forEach(f => data[f.id] = f.value);
-      data.status = 'Pending'; data.createdAt = new Date().toISOString();
+      document.querySelectorAll('input, textarea').forEach(el => data[el.id] = el.value);
+      data.status = 'Pending';
+      data.createdAt = new Date().toISOString();
+
       const content = btoa(JSON.stringify(data, null, 2));
 
       try {
-        // Auto-create folder if missing
-        await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}`, { method: 'HEAD', headers: { Authorization: `token ${TOKEN}` }}).catch(() => createFolder());
+        // Check if file exists
+        const existingRes = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
+          headers: { Authorization: `token ${TOKEN}` }
+        });
 
-        const existing = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, { headers: { Authorization: `token ${TOKEN}` }});
-        const body = { message: `Update ${orderNo}`, content, branch: 'main' };
-        if (existing.ok) body.sha = (await existing.json()).sha;
+        const body = { message: `Create ${orderNo}`, content, branch: 'main' };
+        if (existingRes.ok) {
+          const info = await existingRes.json();
+          body.sha = info.sha;
+          body.message = `Update ${orderNo}`;
+        }
 
+        // Always use PUT
         await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/${orderNo}.json`, {
-          method: existing.ok ? 'PUT' : 'POST',
-          headers: { Authorization: `token ${TOKEN}` },
+          method: 'PUT',
+          headers: { Authorization: `token ${TOKEN}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
 
         alert(`Saved: ${orderNo}`);
-        window.location.href = 'dashboard.html';
-      } catch (e) { alert("Save failed. Check console."); }
-    }
-
-    async function createFolder() {
-      await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}/.gitkeep`, {
-        method: 'PUT',
-        headers: { Authorization: `token ${TOKEN}` },
-        body: JSON.stringify({ message: "Create orders folder", content: btoa(''), branch: 'main' })
-      });
+        window.location.href = 'dashboard.html?t=' + Date.now();
+      } catch (e) {
+        console.error(e);
+        alert("Save failed. Check Order No or internet.");
+      }
     }
   </script>
 </body>

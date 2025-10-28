@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sales Order Master Dashboard</title>
+  <title>Master Dashboard</title>
   <style>
     body { font-family: Arial; margin: 0; background: #f4f6f9; }
     .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
@@ -30,14 +30,14 @@
       <button class="btn refresh" onclick="loadOrders()">Refresh Now</button>
     </div>
     <div class="stats">
-      <div class="stat"><strong>Total Orders</strong><br><span id="total">0</span></div>
+      <div class="stat"><strong>Total</strong><br><span id="total">0</span></div>
       <div class="stat"><strong>Pending</strong><br><span id="pending">0</span></div>
       <div class="stat"><strong>Approved</strong><br><span id="approved">0</span></div>
       <div class="stat"><strong>Shipped</strong><br><span id="shipped">0</span></div>
     </div>
     <table id="table">
-      <thead><tr><th>Order No</th><th>Name</th><th>Mobile</th><th>Date Created</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody id="body"><tr><td colspan="6" class="no-data">Loading orders...</td></tr></tbody>
+      <thead><tr><th>Order No</th><th>Name</th><th>Mobile</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="body"><tr><td colspan="6" class="no-data">Loading...</td></tr></tbody>
     </table>
   </div>
 
@@ -52,14 +52,17 @@
 
       try {
         const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}`, {
-          headers: { 'Authorization': `token ${TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
+          headers: { Authorization: `token ${TOKEN}` }
         });
 
-        if (res.status === 404) {
-          tbody.innerHTML = '<tr><td colspan="6" class="no-data">Folder "orders" not found. Create first order!</td></tr>';
+        if (!res.ok) {
+          if (res.status === 404) {
+            tbody.innerHTML = '<tr><td colspan="6" class="no-data">Folder not found. Create first order!</td></tr>';
+          } else {
+            throw new Error(`HTTP ${res.status}`);
+          }
           return;
         }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const files = await res.json();
         tbody.innerHTML = '';
@@ -67,8 +70,7 @@
 
         for (let file of files) {
           if (file.name.endsWith('.json')) {
-            const dataRes = await fetch(file.download_url + '?t=' + Date.now());
-            const data = await dataRes.json();
+            const data = await (await fetch(file.download_url + '?t=' + Date.now())).json();
             total++;
             if (data.status === 'Pending') pending++;
             if (data.status === 'Approved') approved++;
@@ -102,10 +104,9 @@
         document.getElementById('approved').textContent = approved;
         document.getElementById('shipped').textContent = shipped;
 
-        if (total === 0) tbody.innerHTML = '<tr><td colspan="6" class="no-data">No orders yet. Create one!</td></tr>';
+        if (total === 0) tbody.innerHTML = '<tr><td colspan="6" class="no-data">No orders yet.</td></tr>';
       } catch (e) {
-        console.error(e);
-        tbody.innerHTML = '<tr><td colspan="6" class="no-data">Failed to load. <button onclick="loadOrders()">Retry</button></td></tr>';
+        tbody.innerHTML = `<tr><td colspan="6" class="no-data">Error: ${e.message} <button onclick="loadOrders()">Retry</button></td></tr>`;
       }
     }
 
@@ -124,7 +125,7 @@
     }
 
     loadOrders();
-    setInterval(loadOrders, 20000);
+    setInterval(loadOrders, 15000);
   </script>
 </body>
 </html>
